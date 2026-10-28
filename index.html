@@ -1,0 +1,198 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050505">
+  <title>ANOMALY — ONE POINT OUT OF ORDER</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #050505;
+    }
+
+    body {
+      touch-action: none;
+    }
+
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+<script>
+const COLS = 19;
+const ROWS = 33;
+
+let dots = [];
+let spacingX;
+let spacingY;
+
+let anomalyX;
+let anomalyY;
+let targetX;
+let targetY;
+
+let touchActive = false;
+let lastTouchTime = 0;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  pixelDensity(1);
+  frameRate(30);
+  noStroke();
+
+  anomalyX = width * 0.5;
+  anomalyY = height * 0.5;
+  targetX = anomalyX;
+  targetY = anomalyY;
+
+  createGrid();
+}
+
+function createGrid() {
+  dots = [];
+
+  const marginX = width * 0.07;
+  const marginY = height * 0.09;
+
+  spacingX = (width - marginX * 2) / (COLS - 1);
+  spacingY = (height - marginY * 2) / (ROWS - 1);
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      dots.push({
+        x: marginX + c * spacingX,
+        y: marginY + r * spacingY,
+        phase: random(TWO_PI),
+        size: random(0.85, 1.15),
+        speed: random(0.7, 1.2)
+      });
+    }
+  }
+}
+
+function draw() {
+  background(5, 5, 5);
+
+  const t = frameCount * 0.018;
+
+  // 赤い点は目標位置へ滑らかに移動
+  anomalyX = lerp(anomalyX, targetX, 0.045);
+  anomalyY = lerp(anomalyY, targetY, 0.045);
+
+  // 異常の強さがゆっくり変化
+  const strength = 1.0 + 0.18 * sin(t * 0.7);
+
+  for (let d of dots) {
+    const baseX = d.x;
+    const baseY = d.y;
+
+    // 赤い点からの距離
+    const dx = baseX - anomalyX;
+    const dy = baseY - anomalyY;
+    const distance = sqrt(dx * dx + dy * dy);
+
+    // 異常が周囲へ広がる
+    const radius = min(width, height) * 0.23;
+    const influence = exp(-distance / radius);
+
+    // 波紋とねじれ
+    const angle = atan2(dy, dx);
+    const wave = sin(distance * 0.055 - t * 2.2 + d.phase);
+
+    const offsetX =
+      cos(angle) * wave * influence *
+      spacingX * 2.7 * strength;
+
+    const offsetY =
+      sin(angle) * wave * influence *
+      spacingY * 2.7 * strength;
+
+    // 通常の点にも微細な呼吸を与える
+    const breathing =
+      0.5 + 0.5 * sin(t * d.speed + d.phase);
+
+    const dotSize =
+      min(spacingX, spacingY) *
+      (0.13 + breathing * 0.045) *
+      d.size;
+
+    // 異常の中心に近いほど明るくなる
+    const brightness = 155 + 100 * breathing;
+
+    fill(brightness);
+    circle(
+      baseX + offsetX,
+      baseY + offsetY,
+      dotSize
+    );
+  }
+
+  // 赤い点：作品の唯一の異常
+  const redPulse = 1 + 0.10 * sin(t * 1.8);
+  const redSize = min(spacingX, spacingY) * 0.95 * redPulse;
+
+  // 控えめな赤い光
+  fill(110, 12, 18, 35);
+  circle(anomalyX, anomalyY, redSize * 4.5);
+
+  fill(245, 35, 45);
+  circle(anomalyX, anomalyY, redSize);
+}
+
+// 指やマウスで異常の位置を変える
+function moveAnomaly(x, y) {
+  targetX = constrain(x, 0, width);
+  targetY = constrain(y, 0, height);
+  touchActive = true;
+  lastTouchTime = millis();
+}
+
+function mousePressed() {
+  moveAnomaly(mouseX, mouseY);
+  return false;
+}
+
+function mouseDragged() {
+  moveAnomaly(mouseX, mouseY);
+  return false;
+}
+
+function touchStarted() {
+  if (touches.length > 0) {
+    moveAnomaly(touches[0].x, touches[0].y);
+  } else {
+    moveAnomaly(mouseX, mouseY);
+  }
+  return false;
+}
+
+function touchMoved() {
+  if (touches.length > 0) {
+    moveAnomaly(touches[0].x, touches[0].y);
+  }
+  return false;
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+
+  targetX = constrain(targetX, 0, width);
+  targetY = constrain(targetY, 0, height);
+
+  createGrid();
+}
+</script>
+</body>
+</html>
